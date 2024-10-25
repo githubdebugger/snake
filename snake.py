@@ -255,40 +255,33 @@ def find_path_dijkstra(snake, food, wall_setting):
 
 def find_path_survival(snake, food, wall_setting):
     # In Survival Mode, the snake takes longer paths to survive longer
-    # We'll use a modified BFS that seeks the longest possible path to the food
-    path = find_longest_path(snake[0], food, set(snake), wall_setting)
+    # We'll use BFS to find the longest possible path to the food
+    path = bfs_longest_path(snake, food, wall_setting)
     return path
 
 
-def find_longest_path(start, goal, snake_set, wall_setting):
-    queue = [(start, [start])]
-    visited = set([start])
-    longest_path = None
-    max_length = -1
-    attempts = 0
-    max_attempts = 1000  # Limit the number of attempts
+def bfs_longest_path(snake, food, wall_setting):
+    # Perform BFS to find a path to the food, prioritizing longer paths
+    queue = [(snake[0], [snake[0]])]
+    visited = set()
+    longest_path = []
 
-    while queue and attempts < max_attempts:
-        attempts += 1
+    while queue:
         current, path = queue.pop(0)
-
-        if current == goal:
-            if len(path) > max_length:
-                max_length = len(path)
-                longest_path = path
+        if current == food and len(path) > len(longest_path):
+            longest_path = path
             continue
 
-        for neighbor in get_neighbors(current, snake_set, wall_setting):
-            if neighbor not in visited:
+        for neighbor in get_neighbors(current, set(snake), wall_setting):
+            if neighbor not in visited and neighbor not in path:
                 visited.add(neighbor)
-                new_path = path + [neighbor]
-                queue.append((neighbor, new_path))
+                queue.append((neighbor, path + [neighbor]))
 
-    # If no path found, fall back to shortest path using dijkstra
-    if longest_path is None:
-        return dijkstra(start, goal, snake_set, wall_setting)
-
-    return longest_path
+    if longest_path:
+        return longest_path
+    else:
+        # Fall back to shortest path if no longer path is found
+        return dijkstra(snake[0], food, set(snake), wall_setting)
 
 
 def dijkstra(start, goal, snake_set, wall_setting):
@@ -302,11 +295,10 @@ def dijkstra(start, goal, snake_set, wall_setting):
 
         if current == goal:
             # Reconstruct path
-            path = []
-            while current != start:
-                path.append(current)
+            path = [current]
+            while current in came_from:
                 current = came_from[current]
-            path.append(start)
+                path.append(current)
             path.reverse()
             return path
 
@@ -353,32 +345,6 @@ def draw_cell(pos, color):
     y, x = pos
     rect = pygame.Rect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE)
     pygame.draw.rect(screen, color, rect)
-
-
-def flood_fill(pos, snake_set, visited):
-    stack = [pos]
-    count = 0
-
-    while stack:
-        current = stack.pop()
-        if current in visited:
-            continue
-        visited.add(current)
-        count += 1
-
-        for neighbor in get_neighbors(current, snake_set, wall_setting=True):
-            if neighbor not in visited:
-                stack.append(neighbor)
-
-    return count
-
-
-def is_safe(snake, snake_set, wall_setting):
-    head = snake[0]
-    body_length = len(snake)
-    visited = set()
-    count = flood_fill(head, snake_set, visited)
-    return count >= body_length
 
 
 if __name__ == "__main__":
