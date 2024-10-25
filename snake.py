@@ -26,60 +26,123 @@ GREEN = (0, 255, 0)
 
 
 def main():
-    # Initial snake position (center of the screen)
-    snake = [(GRID_HEIGHT // 2, GRID_WIDTH // 2)]
-    snake_set = set(snake)
+    while True:
+        # Initial snake position (center of the screen)
+        snake = [(GRID_HEIGHT // 2, GRID_WIDTH // 2)]
+        snake_set = set(snake)
+        score = 0  # Initialize score
 
-    # Place initial food
-    food = place_food(snake_set)
+        # Place initial food
+        food = place_food(snake_set)
 
-    running = True
-    while running:
+        # Wait for user to start the game
+        font = pygame.font.SysFont(None, 55)
+        start_text = font.render("Press any key to start", True, WHITE)
         screen.fill(BLACK)
-
-        # Handle events
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-
-        # Compute the next move using Dijkstra's algorithm
-        path = dijkstra(snake[0], food, snake_set)
-        if not path or len(path) < 2:
-            # No path to food (snake is trapped) or already at food
-            running = False
-            continue
-
-        next_move = path[1]  # The first element is the current head
-
-        # Move the snake
-        snake.insert(0, next_move)
-        snake_set.add(next_move)
-
-        if next_move == food:
-            # Snake eats the food; place new food
-            food = place_food(snake_set)
-        else:
-            # Remove the tail segment
-            tail = snake.pop()
-            snake_set.remove(tail)
-
-        # Check for collision with self (redundant due to snake_set, but kept for clarity)
-        if snake.count(next_move) > 1:
-            running = False
-            continue
-
-        # Draw food
-        draw_cell(food, RED)
-
-        # Draw snake
-        for segment in snake:
-            draw_cell(segment, GREEN)
-
+        screen.blit(
+            start_text,
+            (
+                SCREEN_WIDTH // 2 - start_text.get_width() // 2,
+                SCREEN_HEIGHT // 2 - start_text.get_height() // 2,
+            ),
+        )
         pygame.display.flip()
-        clock.tick(10)  # Control the speed of the game (10 frames per second)
+        waiting = True
+        while waiting:
+            for event in pygame.event.get():
+                if event.type == pygame.KEYDOWN:
+                    waiting = False
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
 
-    pygame.quit()
-    sys.exit()
+        running = True
+        while running:
+            screen.fill(BLACK)
+
+            # Display score
+            score_font = pygame.font.SysFont(None, 35)
+            score_text = score_font.render(f"Score: {score}", True, WHITE)
+            screen.blit(score_text, (5, 5))
+
+            # Handle events
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+
+            # Compute the next move using Dijkstra's algorithm
+            path = dijkstra(snake[0], food, snake_set)
+            if not path or len(path) < 2:
+                # No path to food (snake is trapped) or already at food
+                running = False
+                continue
+
+            next_move = path[1]  # The first element is the current head
+
+            # Move the snake
+            snake.insert(0, next_move)
+            snake_set.add(next_move)
+
+            if next_move == food:
+                # Snake eats the food; place new food
+                score += 1
+                food = place_food(snake_set)
+            else:
+                # Remove the tail segment
+                tail = snake.pop()
+                snake_set.remove(tail)
+
+            # Check for collision with self
+            if snake.count(next_move) > 1:
+                running = False
+                continue
+
+            # Draw food
+            draw_cell(food, RED)
+
+            # Draw snake
+            for segment in snake:
+                draw_cell(segment, GREEN)
+
+            pygame.display.flip()
+            clock.tick(10)  # Control the speed of the game (10 frames per second)
+
+        # Game over, ask user to restart or quit
+        screen.fill(BLACK)
+        game_over_font = pygame.font.SysFont(None, 55)
+        game_over_text1 = game_over_font.render("Game Over", True, RED)
+        game_over_text2 = game_over_font.render(
+            "Press R to Restart or Q to Quit", True, WHITE
+        )
+        screen.blit(
+            game_over_text1,
+            (
+                SCREEN_WIDTH // 2 - game_over_text1.get_width() // 2,
+                SCREEN_HEIGHT // 2 - game_over_text1.get_height(),
+            ),
+        )
+        screen.blit(
+            game_over_text2,
+            (
+                SCREEN_WIDTH // 2 - game_over_text2.get_width() // 2,
+                SCREEN_HEIGHT // 2 + game_over_text2.get_height(),
+            ),
+        )
+        pygame.display.flip()
+
+        waiting = True
+        while waiting:
+            for event in pygame.event.get():
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_r:
+                        waiting = False  # Restart the game
+                    elif event.key == pygame.K_q:
+                        pygame.quit()
+                        sys.exit()
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
 
 
 def dijkstra(start, goal, snake_set):
@@ -117,9 +180,13 @@ def get_neighbors(pos, snake_set):
     y, x = pos
     for dy, dx in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
         ny, nx = y + dy, x + dx
-        if 0 <= ny < GRID_HEIGHT and 0 <= nx < GRID_WIDTH:
-            if (ny, nx) not in snake_set:
-                neighbors.append((ny, nx))
+
+        # Allow wrapping around edges
+        ny %= GRID_HEIGHT
+        nx %= GRID_WIDTH
+
+        if (ny, nx) not in snake_set:
+            neighbors.append((ny, nx))
     return neighbors
 
 
