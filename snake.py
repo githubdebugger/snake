@@ -72,7 +72,7 @@ def main():
                     sys.exit()
 
             # Compute the next move using Dijkstra's algorithm
-            path = dijkstra(snake[0], food, snake_set)
+            path = find_safe_path(snake, food)
             if not path or len(path) < 2:
                 # No path to food (snake is trapped) or already at food
                 running = False
@@ -145,6 +145,62 @@ def main():
                     sys.exit()
 
 
+def find_safe_path(snake, food):
+    # Generate all possible paths to the food
+    path = dijkstra(snake[0], food, set(snake))
+    if not path:
+        return None
+
+    # Simulate the snake following the path
+    snake_copy = snake.copy()
+    snake_set = set(snake_copy)
+
+    for next_pos in path[1:]:
+        snake_copy.insert(0, next_pos)
+        snake_set.add(next_pos)
+
+        if next_pos == food:
+            # When the snake eats the food, do not remove the tail
+            pass
+        else:
+            tail = snake_copy.pop()
+            snake_set.remove(tail)
+
+    # After reaching the food, check if the snake can continue moving
+    # Perform a flood fill from snake's head position to see if there is enough space
+    if is_safe(snake_copy, snake_set):
+        return path
+    else:
+        # If not safe, try alternative paths (could implement more sophisticated logic here)
+        return None
+
+
+def is_safe(snake, snake_set):
+    head = snake[0]
+    body_length = len(snake)
+    visited = set()
+    count = flood_fill(head, snake_set, visited)
+    return count >= body_length
+
+
+def flood_fill(pos, snake_set, visited):
+    stack = [pos]
+    count = 0
+
+    while stack:
+        current = stack.pop()
+        if current in visited:
+            continue
+        visited.add(current)
+        count += 1
+
+        for neighbor in get_neighbors(current, snake_set, include_snake=False):
+            if neighbor not in visited:
+                stack.append(neighbor)
+
+    return count
+
+
 def dijkstra(start, goal, snake_set):
     queue = []
     heapq.heappush(queue, (0, start))
@@ -175,7 +231,7 @@ def dijkstra(start, goal, snake_set):
     return None  # No path found
 
 
-def get_neighbors(pos, snake_set):
+def get_neighbors(pos, snake_set, include_snake=True):
     neighbors = []
     y, x = pos
     for dy, dx in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
@@ -185,8 +241,12 @@ def get_neighbors(pos, snake_set):
         ny %= GRID_HEIGHT
         nx %= GRID_WIDTH
 
-        if (ny, nx) not in snake_set:
-            neighbors.append((ny, nx))
+        if include_snake:
+            if (ny, nx) not in snake_set:
+                neighbors.append((ny, nx))
+        else:
+            if (ny, nx) not in snake_set:
+                neighbors.append((ny, nx))
     return neighbors
 
 
