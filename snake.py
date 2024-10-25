@@ -254,34 +254,48 @@ def find_path_dijkstra(snake, food, wall_setting):
 
 
 def find_path_survival(snake, food, wall_setting):
-    # In Survival Mode, the snake takes longer paths to survive longer
-    # We'll use BFS to find the longest possible path to the food
-    path = bfs_longest_path(snake, food, wall_setting)
+    # In Survival Mode, the snake takes paths closer to its body and tail
+    path = a_star(snake, food, wall_setting)
     return path
 
 
-def bfs_longest_path(snake, food, wall_setting):
-    # Perform BFS to find a path to the food, prioritizing longer paths
-    queue = [(snake[0], [snake[0]])]
-    visited = set()
-    longest_path = []
+def a_star(snake, food, wall_setting):
+    # A* algorithm with heuristic that prefers positions closer to the snake's tail
+    snake_set = set(snake)
+    start = snake[0]
+    tail = snake[-1]
 
-    while queue:
-        current, path = queue.pop(0)
-        if current == food and len(path) > len(longest_path):
-            longest_path = path
-            continue
+    open_set = []
+    heapq.heappush(open_set, (0, start))
+    came_from = {}
+    g_score = {start: 0}
 
-        for neighbor in get_neighbors(current, set(snake), wall_setting):
-            if neighbor not in visited and neighbor not in path:
-                visited.add(neighbor)
-                queue.append((neighbor, path + [neighbor]))
+    while open_set:
+        current_f_score, current = heapq.heappop(open_set)
 
-    if longest_path:
-        return longest_path
-    else:
-        # Fall back to shortest path if no longer path is found
-        return dijkstra(snake[0], food, set(snake), wall_setting)
+        if current == food:
+            # Reconstruct path
+            path = [current]
+            while current in came_from:
+                current = came_from[current]
+                path.append(current)
+            path.reverse()
+            return path
+
+        for neighbor in get_neighbors(current, snake_set, wall_setting):
+            tentative_g_score = g_score[current] + 1
+            if neighbor not in g_score or tentative_g_score < g_score[neighbor]:
+                g_score[neighbor] = tentative_g_score
+                # Heuristic: prefer positions closer to the tail
+                h_score = manhattan_distance(neighbor, tail)
+                f_score = tentative_g_score + h_score
+                heapq.heappush(open_set, (f_score, neighbor))
+                came_from[neighbor] = current
+
+        # Temporarily add current to snake_set to prevent revisiting
+        snake_set.add(current)
+
+    return None  # No path found
 
 
 def dijkstra(start, goal, snake_set, wall_setting):
@@ -311,6 +325,10 @@ def dijkstra(start, goal, snake_set, wall_setting):
                 came_from[neighbor] = current
 
     return None  # No path found
+
+
+def manhattan_distance(a, b):
+    return abs(a[0] - b[0]) + abs(a[1] - b[1])
 
 
 def get_neighbors(pos, snake_set, wall_setting):
